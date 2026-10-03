@@ -23,6 +23,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 @SpringBootApplication
@@ -57,40 +58,14 @@ record LeadRecord(
 
 @Component
 class LeadStore {
-    private final JdbcClient jdbc;
-    private final ObjectMapper mapper;
+    private final List<LeadRecord> leads = new CopyOnWriteArrayList<>();
 
-    LeadStore(JdbcClient jdbc, ObjectMapper mapper) {
-        this.jdbc = jdbc;
-        this.mapper = mapper;
-    }
+    void add(LeadRecord lead) { leads.add(lead); }
 
-    void add(LeadRecord lead) {
-        try {
-            jdbc.sql("INSERT INTO leads (dados) VALUES (CAST(:dados AS jsonb))")
-                    .param("dados", mapper.writeValueAsString(lead))
-                    .update();
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    List<LeadRecord> all() {
-        return jdbc.sql("SELECT dados FROM leads ORDER BY id")
-                .query((rs, i) -> read(rs.getString("dados")))
-                .list();
-    }
-
-    private LeadRecord read(String json) {
-        try {
-            return mapper.readValue(json, LeadRecord.class);
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException(e);
-        }
-    }
+    List<LeadRecord> all() { return List.copyOf(leads); }
 }
 
-/* ===================== SERVIÇO DE IA (GEMINI) ===================== */
+
 
 @Service
 class ResumoIaService {
